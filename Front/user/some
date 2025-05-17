@@ -1,0 +1,94 @@
+data-validate = "Valid email is required: ex@abc.xyz"
+<div class="wrap-input100 validate-input" data-validate = "Valid email is required: ex@abc.xyz">
+
+
+    <script>
+        $(document).ready(function () {
+            // Handle the form submission using AJAX
+            $('#login-form').on('submit', function (e) {
+                e.preventDefault(); // Prevent the form from submitting the traditional way
+    
+                var username = $('#username').val();
+                var password = $('#password').val();
+    
+                $.ajax({
+                    url: '../../Back/loginback.php', // The PHP file to handle the login request
+                    type: 'POST',
+                    data: {username: username, password: password},
+                    success: function (response) {
+                        var data = JSON.parse(response);
+    
+                        if (data.success) {
+                            // Redirect based on user type (admin or normal)
+                            if (data.usertype === 'admin') {
+                                window.location.href = '../main/admin/index.php';
+                            } else {
+                                window.location.href = '../main/index.php';
+                            }
+                        } else {
+                            // Show error message
+                            $('#message-container').html('<div class="alert alert-danger">' + data.message + '</div>');
+                        }
+                    },
+                    error: function () {
+                        // Show error if something goes wrong with the AJAX request
+                        $('#message-container').html('<div class="alert alert-danger">Something went wrong. Please try again.</div>');
+                    }
+                });
+            });
+        });
+    </script>
+
+
+php login
+<?php
+session_start();
+
+// Include your database connection file
+include 'db.php'; // Adjust this path as needed
+
+// If the form is submitted
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    // Get the submitted username and password
+    $username = $_POST['username'];
+    $password = $_POST['password'];
+
+    // Prepare SQL query to check if the user exists
+    $query = "SELECT id, uname, Userpassword, usertype FROM userTable WHERE uname = ?";
+    $stmt = $conn->prepare($query);
+    $stmt->bind_param("s", $username);
+    $stmt->execute();
+    $stmt->store_result();
+    $stmt->bind_result($id, $uname, $hashedPassword, $userType);
+
+    if ($stmt->num_rows > 0) {
+        // User found, now verify the password
+        $stmt->fetch();
+
+        if (password_verify($password, $hashedPassword)) {
+            // Password is correct, start a session
+            $_SESSION['user_id'] = $id;
+            $_SESSION['username'] = $uname;
+            $_SESSION['user_type'] = $userType;
+
+            // Redirect based on user type
+            if ($userType == 'admin') {
+                header('Location: ../Front/main/admin/index.php');  // Redirect to admin dashboard
+            } else {
+                header('Location: ../Front/main/index.php');  // Redirect to normal user dashboard
+            }
+            exit;
+        } else {
+            // Invalid password
+            $message = 'Invalid password.';
+            header("Location: ../Front/user/login.php?message=" . urlencode($message));
+            exit;
+        }
+    } else {
+        // User not found
+        $message = 'User not found.';
+        header("Location: ../Front/user/login.php?message=" . urlencode($message));
+        exit;
+    }
+}
+?>
